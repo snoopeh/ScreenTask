@@ -1,0 +1,41 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>ScreenTask · Direct host</title>
+
+<style>
+
+:root{color-scheme:dark;font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:#0b1020;color:#edf2ff}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at top,#19264a,#0b1020 65%)}main{width:min(720px,100%);padding:28px;border:1px solid #263452;border-radius:20px;background:#111a2d;box-shadow:0 25px 80px #0007}h1{margin:0 0 6px;font-size:28px}p{color:#a8b5ce}.row{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}button,input{font:inherit;border-radius:10px;padding:11px 14px;border:1px solid #354565;background:#17233a;color:#edf2ff}button{cursor:pointer;background:#3279e6;border:0;font-weight:700}button:disabled{opacity:.55;cursor:wait}.code{font:700 20px ui-monospace,monospace;letter-spacing:.08em;color:#a8f0d2;overflow-wrap:anywhere}.card{padding:15px;border-radius:12px;background:#0b1323;border:1px solid #25344f;margin:12px 0}.status{color:#91a2c0}.warn{color:#ffd38b}.hidden{display:none}
+
+</style></head>
+
+<body><main>
+
+<h1>Direct WebRTC host</h1>
+
+<p>Share your screen directly with one viewer. Video and audio use a direct WebRTC connection. Browser capture is paired by ScreenTask; HDR mode also reads corrected monitor frames locally. No TURN relay is configured.</p>
+
+<div class="card"><div>Private pairing code (send this to your viewer):</div><div class="code" id="room">Preparing…</div></div>
+
+<div class="row"><button id="start">Choose screen and start sharing</button><button id="copy" disabled>Copy code</button><button id="copyLink" disabled>Copy invitation link</button><button id="stop" disabled>Stop sharing</button></div>
+
+<div class="card"><label for="viewerAddress">Viewer server address (include the port):</label><input id="viewerAddress" type="url" style="width:100%;margin:8px 0" aria-label="Viewer server address"><a id="invite" style="color:#a8f0d2;overflow-wrap:anywhere"></a><p>Use your LAN address for nearby viewers. For remote friends, enter your public address and external TCP port, or HTTPS address. The external port may differ from ScreenTask’s listening port. Test this link from the viewer’s network.</p></div>
+
+<div class="card"><label><input type="checkbox" id="hdrNative"> Share the HDR-corrected ScreenTask monitor</label><p>Enable HDR correction on the app’s Video tab first. This shares the <strong>entire monitor selected there</strong>, rather than a browser-picked window. Tone mapping happens before direct WebRTC transmission. Local decoding and re-encoding add some latency.</p><label><input type="checkbox" id="hdrAudio"> Include audio from the browser screen picker</label><p>Optional: select the same monitor in the picker and enable system audio. Video still comes from the monitor selected in ScreenTask.</p></div>
+
+<video id="preview" muted autoplay playsinline style="width:100%;max-height:48vh;object-fit:contain;background:#03050a;border:1px solid #26344f;border-radius:12px"></video>
+
+<div class="card status" id="status">Waiting to start.</div>
+
+<p class="warn">The host page must be opened on this PC at localhost. For a friend outside your home network, they also need a way to reach the viewer page for signaling (usually a router port forward or an HTTPS tunnel). This connection will still fail if a firewall/NAT blocks direct WebRTC.</p>
+
+<p class="status">Allow system audio in the browser's screen picker if you want audio. Browser support varies.</p>
+
+</main>
+
+<script src="/hdr-source.js"></script><script src="/rtc-client.js"></script></body></html>

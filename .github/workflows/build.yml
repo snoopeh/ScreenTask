@@ -1,0 +1,19 @@
+name: Build and test
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet build ScreenTask.sln -c Release --nologo
+      - run: dotnet build tests/UpdateTests -c Release --nologo
+      - run: tests/UpdateTests/bin/Release/net48/UpdateTests.exe
+      - run: dotnet build tests/ConnectionHarness -c Release --nologo

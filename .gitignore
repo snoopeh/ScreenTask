@@ -156,3 +156,13 @@ $RECYCLE.BIN/
 .DS_Store
 /.vs/ScreenTask
 /node_modules
+/tests/harness.*.log
+/tests/harness.pid
+/tests/harness.stop
+/tests/artifacts/
+
+# Portable builds, credentials, settings and update recovery copies
+/dist/
+appsettings.xml
+.screentask-backup-*/
+*.partial-*

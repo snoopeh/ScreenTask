@@ -11,7 +11,7 @@ namespace ScreenTask
     {
         public string IP { get; set; }
         public int Port { get; set; }
-        public int ScreenshotsSpeed { get; set; }
+        public int FrameRate { get; set; } = 60;
         public bool IsPrivateSession { get; set; }
         public string Username { get; set; }
         public string Password { get; set; }
@@ -21,5 +21,15 @@ namespace ScreenTask
         public bool IsStartMinimizedEnabled { get; set; }
         public int ImageQuality { get; set; }
         public bool AllowPublicAccess { get; set; }
+        public bool ShareSystemAudio { get; set; } = true;
+        public int OutputWidth { get; set; } = 1280;
+        public int MaxBitrateMbps { get; set; } = 2;
+        public bool HdrColorCorrection { get; set; }
+        public double HdrExposure { get; set; }
+        public int HdrPeakNits { get; set; } = 1000;
+        public string AudioDeviceId { get; set; }
+        public string AudioMode { get; set; } = "device";
+        public int AudioProcessId { get; set; }
+        public string AudioProcessName { get; set; }
     }
 }

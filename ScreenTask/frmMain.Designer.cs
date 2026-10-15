@@ -38,6 +38,7 @@
             this.numPort = new System.Windows.Forms.NumericUpDown();
             this.txtLog = new System.Windows.Forms.TextBox();
             this.cbCaptureMouse = new System.Windows.Forms.CheckBox();
+            this.cbShareSystemAudio = new System.Windows.Forms.CheckBox();
             this.btnStartServer = new System.Windows.Forms.Button();
             this.txtPassword = new System.Windows.Forms.TextBox();
             this.txtUser = new System.Windows.Forms.TextBox();
@@ -183,6 +184,20 @@
             this.cbCaptureMouse.Text = "Show Mouse Pointer";
             this.cbCaptureMouse.UseVisualStyleBackColor = false;
             this.cbCaptureMouse.CheckedChanged += new System.EventHandler(this.cbCaptureMouse_CheckedChanged);
+            //
+            // cbShareSystemAudio
+            //
+            this.cbShareSystemAudio.AutoSize = true;
+            this.cbShareSystemAudio.BackColor = System.Drawing.Color.Transparent;
+            this.cbShareSystemAudio.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.cbShareSystemAudio.ForeColor = System.Drawing.Color.White;
+            this.cbShareSystemAudio.Location = new System.Drawing.Point(196, 84);
+            this.cbShareSystemAudio.Name = "cbShareSystemAudio";
+            this.cbShareSystemAudio.Size = new System.Drawing.Size(131, 17);
+            this.cbShareSystemAudio.TabIndex = 45;
+            this.cbShareSystemAudio.Text = "Share system audio";
+            this.cbShareSystemAudio.UseVisualStyleBackColor = false;
+            this.cbShareSystemAudio.Checked = true;
             // 
             // btnStartServer
             // 
@@ -288,24 +303,24 @@
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(59, 13);
             this.label6.TabIndex = 31;
-            this.label6.Text = "Millisecond";
+            this.label6.Text = "Target FPS";
             // 
             // numShotEvery
             // 
             this.numShotEvery.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.numShotEvery.Increment = new decimal(new int[] {
-            100,
+            1,
             0,
             0,
             0});
             this.numShotEvery.Location = new System.Drawing.Point(238, 24);
             this.numShotEvery.Maximum = new decimal(new int[] {
-            999999,
+            60,
             0,
             0,
             0});
             this.numShotEvery.Minimum = new decimal(new int[] {
-            100,
+            1,
             0,
             0,
             0});
@@ -314,7 +329,7 @@
             this.numShotEvery.TabIndex = 30;
             this.numShotEvery.ThousandsSeparator = true;
             this.numShotEvery.Value = new decimal(new int[] {
-            500,
+            60,
             0,
             0,
             0});
@@ -447,6 +462,7 @@
             // groupBox1
             // 
             this.groupBox1.Controls.Add(this.numShotEvery);
+            this.groupBox1.Controls.Add(this.cbShareSystemAudio);
             this.groupBox1.Controls.Add(this.label7);
             this.groupBox1.Controls.Add(this.lblQuality);
             this.groupBox1.Controls.Add(this.comboScreens);
@@ -539,6 +555,7 @@
         private System.Windows.Forms.TextBox txtLog;
         private System.Windows.Forms.ComboBox comboIPs;
         private System.Windows.Forms.CheckBox cbCaptureMouse;
+        private System.Windows.Forms.CheckBox cbShareSystemAudio;
         private System.Windows.Forms.Button btnStartServer;
         private System.Windows.Forms.TextBox txtPassword;
         private System.Windows.Forms.TextBox txtUser;

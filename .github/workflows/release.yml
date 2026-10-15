@@ -1,0 +1,29 @@
+name: Publish Windows release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Check release version matches the application
+        shell: pwsh
+        run: |
+          $assembly = Get-Content ScreenTask/Properties/AssemblyInfo.cs -Raw
+          $match = [regex]::Match($assembly, 'AssemblyVersion\("([0-9]+\.[0-9]+\.[0-9]+)\.0"\)')
+          if (!$match.Success -or $env:GITHUB_REF_NAME -ne "v$($match.Groups[1].Value)") { throw 'Tag and AssemblyVersion differ.' }
+      - name: Build and verify portable download
+        shell: pwsh
+        run: ./scripts/Build-Release.ps1
+      - name: Publish portable download and checksums
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" dist/release/ScreenTask-win-x64.zip dist/release/SHA256SUMS.txt --title "ScreenTask $env:GITHUB_REF_NAME" --generate-notes --latest

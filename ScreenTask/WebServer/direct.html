@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScreenTask · Direct viewer</title>
+<style>
+:root{color-scheme:dark;font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:#090d16;color:#edf2ff}*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:24px;background:radial-gradient(ellipse at top,#17213b,#090d16 58%)}main{width:min(1120px,100%);margin:0 auto}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}h1{font-size:22px;margin:0}.badge{border:1px solid #263958;background:#111b2e;color:#a9b9d6;border-radius:999px;padding:5px 11px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e1aa55;margin-right:7px}video{width:100%;max-height:75vh;aspect-ratio:16/9;object-fit:contain;background:#03050a;border-radius:14px;border:1px solid #26334d}.bar,.telemetry{margin-top:14px;padding:14px;background:#111827;border:1px solid #202c41;border-radius:12px}.join{display:flex;gap:8px;flex-wrap:wrap}input,button{font:inherit;border-radius:9px;padding:10px 12px;border:1px solid #354565;background:#17233a;color:#edf2ff}input{min-width:min(360px,100%);flex:1;font-family:ui-monospace,monospace}button{cursor:pointer;background:#3279e6;border:0;font-weight:700}button:disabled{opacity:.55}.hint,.telemetry{color:#a8b5ce}.telemetry{font:13px/1.8 ui-monospace,Consolas,monospace;white-space:pre-wrap}.hint{margin-top:10px}.error{color:#ffbfad}.hidden{display:none}
+</style></head><body><main>
+<header><h1>ScreenTask · Direct WebRTC</h1><span class="badge"><i class="dot" id="dot"></i><span id="status">Waiting to connect</span></span></header>
+<video id="video" autoplay playsinline controls></video>
+<section class="bar"><div class="join"><input id="room" maxlength="2048" placeholder="Paste a pairing code or full invitation link" aria-label="Pairing code"><button id="connect">Connect directly</button><button id="disconnect" disabled>Disconnect</button></div><div class="hint">Server: <strong id="serverAddress"></strong><br>Direct-only mode: WebRTC uses STUN to find a peer path, with no TURN/media relay configured. If the network blocks direct UDP, it will fail closed.</div></section>
+<section class="telemetry" id="telemetry">Transport: not connected
+Pair: —
+RTT / jitter / loss: —
+Receive rate / decoded FPS: —</section>
+</main><script>document.getElementById("serverAddress").textContent=location.host;</script><script src="/rtc-client.js"></script></body></html>
