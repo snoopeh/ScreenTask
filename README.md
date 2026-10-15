@@ -2,7 +2,7 @@
 
 Screen sharing, audio and large file transfers straight from your Windows PC to a friend's browser.
 
-**[Download the latest Windows app](https://github.com/snoopeh/ScreenTask/releases/latest/download/ScreenTask-win-x64.zip)** · **[Releases](https://github.com/snoopeh/ScreenTask/releases)** · **[Usage and connection troubleshooting](docs/USAGE.md)**
+**[Download the latest Windows app](https://github.com/snoopeh/ScreenTask/releases/latest/download/ScreenTask-win-x64.zip)** · **[Releases](https://github.com/snoopeh/ScreenTask/releases)** · **[Usage and connection troubleshooting](https://github.com/snoopeh/ScreenTask/blob/main/docs/USAGE.md)**
 
 ## Run it
 
@@ -30,7 +30,7 @@ Keep ScreenTask in a folder you can write to, such as Documents or Downloads. Up
 - One browser viewer for video, chat and files, with fullscreen Fit/Fill/percentage zoom and mobile layouts.
 - Large file links, byte ranges, download resuming, revocation, private-session authentication and a file-only mode.
 
-Use trusted networks or HTTPS for sensitive data: plain HTTP does not encrypt files or Basic Authentication credentials. There is no hosted storage service or app-imposed file size cap; your connection, disks and any proxy determine practical limits. See [the detailed guide](docs/USAGE.md) for controls, HDR, audio, networking and browser compatibility.
+Use trusted networks or HTTPS for sensitive data: plain HTTP does not encrypt files or Basic Authentication credentials. There is no hosted storage service or app-imposed file size cap; your connection, disks and any proxy determine practical limits. See [the detailed guide](https://github.com/snoopeh/ScreenTask/blob/main/docs/USAGE.md) for controls, HDR, audio, networking and browser compatibility.
 
 ## Build and test
 

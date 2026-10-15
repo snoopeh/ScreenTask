@@ -34,6 +34,38 @@ class ConnectionHarness
         CoreChecks();
         var form = new frmMain();
         var handle = form.Handle;
+        if (args.Length > 0 && args[0] == "--updates-ui")
+        {
+            form.Load -= (EventHandler)Delegate.CreateDelegate(typeof(EventHandler), form, typeof(frmMain).GetMethod("frmMain_Load", Private));
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new System.Drawing.Point(-30000, -30000);
+            form.ShowInTaskbar = false;
+            form.Show();
+            var button = (Button)Get(form, "updateCheck");
+            var page = (TabPage)button.Parent.Parent.Parent;
+            ((TabControl)page.Parent).SelectedTab = page;
+            form.PerformLayout();
+            Application.DoEvents();
+            if (args.Length > 1)
+                using (var bitmap = new System.Drawing.Bitmap(form.Width, form.Height))
+                {
+                    form.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, form.Width, form.Height));
+                    bitmap.Save(args[1]);
+                }
+            if (args.Length > 2 && args[2] == "--github")
+            {
+                SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
+                typeof(Button).GetMethod("OnClick", Private).Invoke(button, new object[] { EventArgs.Empty });
+                var until = DateTime.UtcNow.AddSeconds(30);
+                while (!button.Enabled && DateTime.UtcNow < until) { Application.DoEvents(); Thread.Sleep(50); }
+                var status = ((Label)Get(form, "updateStatus")).Text;
+                if (!button.Enabled || !status.StartsWith("You are up to date")) throw new Exception("Update UI check failed: " + status);
+                Console.WriteLine("PASS: Updates tab checks live GitHub release: " + status);
+            }
+            form.Dispose();
+            Console.WriteLine("PASS: Updates tab renders without loading or changing user settings.");
+            return;
+        }
         SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
         var port = args.Length > 0 ? int.Parse(args[0]) : 17871;
         Set(form, "_ips", new List<Tuple<string, string>> { Tuple.Create("Test loopback", "127.0.0.1") });
