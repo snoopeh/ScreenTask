@@ -66,7 +66,10 @@
       reading = true;
       try {
         while (!stopped && source.readyState === WebSocket.OPEN && sent < length && sent - acknowledged < 1024 * 1024 && source.bufferedAmount < 1024 * 1024) {
-          const count = Math.min(64 * 1024, length - sent);
+          // A WebSocket receive/ACK can split a chunk at any byte. Reserve the
+          // actual remaining credit, rather than assuming 64 KiB-aligned ACKs.
+          const count = Math.min(64 * 1024, length - sent, 1024 * 1024 - (sent - acknowledged), Math.floor(1024 * 1024 - source.bufferedAmount - 1024));
+          if (count <= 0) break;
           const data = await item.file.slice(start + sent, start + sent + count).arrayBuffer();
           if (stopped || source.readyState !== WebSocket.OPEN) break;
           if (data.byteLength !== count) throw new Error('The selected file changed or could not be read.');

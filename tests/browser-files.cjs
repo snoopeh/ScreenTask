@@ -48,7 +48,11 @@ async function main() {
     assert.equal(bytes, 128 * 1024 ** 2);
     const expected = crypto.createHash('sha256'), zeros = Buffer.alloc(1024 * 1024); for (let n = 0; n < 128; n++) expected.update(zeros);
     assert.equal(hash.digest('hex'), expected.digest('hex'));
-    const after = await memory(), diagnostics = await sender.evaluate(() => window.ScreenTaskFilesDiagnostics);
+    const after = await memory();
+    const slow = await fetch(origin + '/browser-download/' + huge.token, {headers: {Range: 'bytes=0-16777215'}});
+    let slowBytes = 0; for await (const chunk of slow.body) { slowBytes += chunk.length; await wait(10); }
+    assert.equal(slowBytes, 16 * 1024 ** 2);
+    const diagnostics = await sender.evaluate(() => window.ScreenTaskFilesDiagnostics);
     assert(after - before < 96 * 1024 ** 2, 'Server buffered too much of the file');
     assert(diagnostics.maxInflightBytes <= 1024 ** 2 && diagnostics.maxBufferedBytes <= 1024 ** 2, JSON.stringify(diagnostics));
     console.log('PASS: 128 MiB browser-sourced transfer streams with bounded server memory and at most 1 MiB browser data in flight', diagnostics);
