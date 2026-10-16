@@ -7,5 +7,9 @@
     <Reference Include="System.IO.Compression.FileSystem" />
     <Compile Include="../../ScreenTask/ReleaseUpdateClient.cs" Link="ReleaseUpdateClient.cs" />
     <Compile Include="../../ScreenTask/UpdateInstaller.cs" Link="UpdateInstaller.cs" />
+    <Compile Include="../../ScreenTask/SettingsStore.cs" Link="SettingsStore.cs" />
+    <Compile Include="../../ScreenTask/AppSettings.cs" Link="AppSettings.cs" />
+    <Compile Include="../../ScreenTask/Constants.cs" Link="Constants.cs" />
+    <Compile Include="../../ScreenTask/HdrDisplayProbe.cs" Link="HdrDisplayProbe.cs" />
   </ItemGroup>
 </Project>

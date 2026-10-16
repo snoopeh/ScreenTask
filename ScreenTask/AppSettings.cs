@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,6 +24,10 @@ namespace ScreenTask
         public bool ShareSystemAudio { get; set; } = true;
         public int OutputWidth { get; set; } = 1280;
         public int MaxBitrateMbps { get; set; } = 2;
+        public bool AutomaticHdr { get; set; } = true;
+        public bool FileTransferOnly { get; set; }
+        public double ManualHdrExposure { get; set; }
+        public int ManualHdrPeakNits { get; set; } = 1000;
         public bool HdrColorCorrection { get; set; }
         public double HdrExposure { get; set; }
         public int HdrPeakNits { get; set; } = 1000;

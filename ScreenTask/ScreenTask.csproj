@@ -114,7 +114,11 @@
     <Compile Include="AudioStreamServer.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="FileShareHub.cs" />
+    <Compile Include="BrowserFileHub.cs" />
     <Compile Include="frmMain.Files.cs" />
+    <Compile Include="frmMain.LiveSettings.cs" />
+    <Compile Include="SettingsStore.cs" />
+    <Compile Include="HdrDisplayProbe.cs" />
     <Compile Include="frmMain.Updates.cs" />
     <Compile Include="ReleaseUpdateClient.cs" />
     <Compile Include="UpdateInstaller.cs" />
@@ -169,6 +173,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="WebServer\buymeacoffee.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="WebServer\browser-files.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="WebServer\index.html">

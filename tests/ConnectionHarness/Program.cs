@@ -24,6 +24,17 @@ class ConnectionHarness
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--hdr-profile")
+        {
+            var type = typeof(frmMain).Assembly.GetType("ScreenTask.HdrDisplayProbe");
+            var profile = type.GetMethod("Read", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { Screen.PrimaryScreen.DeviceName });
+            Console.WriteLine(new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new {
+                known = profile.GetType().GetField("Known", Private).GetValue(profile),
+                hdr = profile.GetType().GetField("Enabled", Private).GetValue(profile),
+                peakNits = profile.GetType().GetField("PeakNits", Private).GetValue(profile)
+            }));
+            return;
+        }
         if (args.Length > 0 && args[0] == "--tone-map-filter")
         {
             var correction = typeof(frmMain).Assembly.GetType("ScreenTask.HdrColorCorrection");
@@ -76,6 +87,18 @@ class ConnectionHarness
             HdrColorCorrection = args.Length > 2 && args[2] == "--hdr" });
         Set(form, "_requestedFrameRate", 60);
         Set(form, "isWorking", true);
+        if (args.Length > 3 && args[2] == "--live")
+        {
+            Directory.CreateDirectory(args[3]);
+            Set(form, "_preferencesPath", Path.Combine(args[3], "preferences.xml"));
+            Set(form, "_configureNetwork", new Func<int, Task>(p => Task.CompletedTask));
+            ((CheckBox)Get(form, "cbShareSystemAudio")).Checked = false;
+            ((ComboBox)Get(form, "hdrMode")).SelectedIndex = 1;
+            typeof(frmMain).GetMethod("ReadControlsIntoSettings", Private).Invoke(form, null);
+            typeof(frmMain).GetMethod("RememberAppliedSettings", Private).Invoke(form, null);
+            Set(form, "_settingsReady", true);
+            ReadLiveCommands(form);
+        }
         var fileMode = args.Length > 3 && args[2] == "--files";
         if (fileMode)
         {
@@ -93,12 +116,56 @@ class ConnectionHarness
             typeof(frmMain).GetMethod("StopCaptureProcess", Private).Invoke(form, null);
             ((HttpListener)Get(form, "serv")).Close();
             ((IDisposable)Get(form, "_rtcSignaling")).Dispose();
+            ((IDisposable)Get(form, "_audioStream"))?.Dispose();
             ((IDisposable)Get(form, "_fileShares")).Dispose();
-            ((System.Windows.Forms.Timer)Get(form, "fileRefreshTimer")).Dispose();
+            ((IDisposable)Get(form, "_browserFiles")).Dispose();
+
             Application.ExitThread();
         };
         timer.Start();
         Application.Run();
+    }
+
+    static void ReadLiveCommands(frmMain form)
+    {
+        Task.Run(() => {
+            string command;
+            while ((command = Console.ReadLine()) != null)
+            {
+                if (!command.StartsWith("SET ")) continue;
+                var arguments = command.Substring(4);
+                form.BeginInvoke(new Action(async () => {
+                    try
+                    {
+                        foreach (var pair in arguments.Split(','))
+                        {
+                            var parts = pair.Split('='); var name = parts[0]; var value = parts[1];
+                            if (name == "fps") ((NumericUpDown)Get(form, "numShotEvery")).Value = Int32.Parse(value);
+                            else if (name == "width") ((ComboBox)Get(form, "comboResolution")).SelectedIndex = value == "1920" ? 1 : value == "1280" ? 2 : value == "854" ? 3 : 0;
+                            else if (name == "bitrate") ((ComboBox)Get(form, "comboBitrate")).SelectedIndex = value == "2" ? 0 : value == "4" ? 1 : value == "8" ? 2 : 5;
+                            else if (name == "quality") ((TrackBar)Get(form, "qualitySlider")).Value = Int32.Parse(value);
+                            else if (name == "hdr") ((ComboBox)Get(form, "hdrMode")).SelectedIndex = value == "auto" ? 0 : value == "manual" ? 2 : 1;
+                            else if (name == "peak") ((NumericUpDown)Get(form, "numHdrPeak")).Value = Int32.Parse(value);
+                            else if (name == "exposure") ((NumericUpDown)Get(form, "numHdrExposure")).Value = Decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+                            else if (name == "fileOnly") ((CheckBox)Get(form, "fileOnlyCheck")).Checked = Boolean.Parse(value);
+                            else if (name == "audio") ((CheckBox)Get(form, "cbShareSystemAudio")).Checked = Boolean.Parse(value);
+                            else if (name == "port") ((NumericUpDown)Get(form, "numPort")).Value = Int32.Parse(value);
+                            else if (name == "mouse") ((CheckBox)Get(form, "cbCaptureMouse")).Checked = Boolean.Parse(value);
+                        }
+                        await (Task)typeof(frmMain).GetMethod("ApplyLiveSettingsAsync", Private).Invoke(form, null);
+                        var settings = (AppSettings)Get(form, "_currentSettings");
+                        var server = (HttpListener)Get(form, "serv");
+                        Console.WriteLine("APPLIED " + new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new {
+                            generation = Get(form, "_serverGeneration"), listener = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(server),
+                            audioGeneration = Get(form, "_audioGeneration"), listening = server.IsListening,
+                            port = settings.Port, hdr = settings.HdrColorCorrection, automaticHdr = settings.AutomaticHdr,
+                            fileOnly = Get(form, "_fileTransferOnly"), manualVisible = ((ComboBox)Get(form, "hdrMode")).SelectedIndex == 2
+                        }));
+                    }
+                    catch (Exception ex) { Console.WriteLine("COMMAND-ERROR " + ex); }
+                }));
+            }
+        });
     }
 
     static void RegisterFileFixtures(frmMain form, string directory)
@@ -126,14 +193,6 @@ class ConnectionHarness
         var revoke = type.GetMethod("Revoke");
         typeof(frmMain).GetMethod("AddSharedFiles", Private).Invoke(form, new object[] { Directory.GetFiles(directory) });
         var entries = (Array)type.GetMethod("GetFiles").Invoke(hub, null);
-        if (((ListView)Get(form, "fileList")).Items.Count != entries.Length) throw new Exception("Sender UI did not list registered files.");
-        var address = (TextBox)Get(form, "filePublicAddress"); address.Text = "http://example.test:19777/";
-        var origin = typeof(frmMain).GetMethod("GetFileOrigin", Private);
-        if ((string)origin.Invoke(form, null) != "http://example.test:19777") throw new Exception("File link lost its external port.");
-        address.Text = "file:///C:/private";
-        try { origin.Invoke(form, null); throw new Exception("Unsafe file link scheme accepted."); }
-        catch (TargetInvocationException ex) when (ex.InnerException is InvalidOperationException) { }
-        address.Text = "";
         foreach (var file in entries)
         {
             Console.WriteLine("FILE " + file.GetType().GetProperty("Token").GetValue(file) + " " + Convert.ToBase64String(Encoding.UTF8.GetBytes((string)file.GetType().GetProperty("Name").GetValue(file))));

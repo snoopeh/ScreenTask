@@ -132,7 +132,7 @@ namespace ScreenTask
             {
                 if (_process != null)
                 {
-                    try { _reportError?.Invoke("Application audio capture ended. Restart the server or refresh the application list."); }
+                    try { _reportError?.Invoke("Application audio capture ended. Refresh and select the application again to reconnect audio."); }
                     catch (Exception) { }
                 }
             }

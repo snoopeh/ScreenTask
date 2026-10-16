@@ -40,7 +40,7 @@ namespace ScreenTask
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             http = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("ScreenTask-Updater/1.10");
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("ScreenTask-Updater/1.11");
             http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         }
 

@@ -42,6 +42,22 @@ internal static class Program
         Directory.CreateDirectory(root);
         try
         {
+            Assert(Constants.AppSettingsFileName == Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScreenTask", "appsettings.xml"), "Stable per-user preferences folder");
+            var legacy = Path.Combine(root, "old-install", "appsettings.xml");
+            var preferences = Path.Combine(root, "per-user", "appsettings.xml");
+            SettingsStore.Save(legacy, new AppSettings { Port = 19777, HdrExposure = .7, HdrPeakNits = 800 });
+            var migrated = SettingsStore.Load(preferences, legacy);
+            Assert(migrated.Port == 19777 && migrated.ManualHdrPeakNits == 800 && migrated.ManualHdrExposure == .7, "Legacy settings and manual overrides migrate");
+            Assert(File.Exists(legacy) && File.Exists(preferences), "Migration preserves original settings");
+            migrated.Port = 19778; SettingsStore.Save(preferences, migrated);
+            Assert(SettingsStore.Load(preferences, legacy).Port == 19778, "Stable settings take precedence after updates");
+            Assert(Directory.GetFiles(Path.GetDirectoryName(preferences), "*.tmp").Length == 0, "Atomic save leaves no temporary file");
+            File.WriteAllText(preferences, "corrupted preferences");
+            Assert(SettingsStore.Load(preferences, legacy).Port == 19777, "Damaged preferences recover from backup");
+            Assert(Directory.GetFiles(Path.GetDirectoryName(preferences), "*.corrupt-*").Length == 1, "Damaged preferences retained for recovery");
+            Assert(HdrDisplayProbe.FromMetadata(12, 650).Enabled && HdrDisplayProbe.FromMetadata(12, 650).PeakNits == 650, "Automatic HDR uses active Windows display metadata");
+            Assert(!HdrDisplayProbe.FromMetadata(0, 650).Enabled && !HdrDisplayProbe.FromMetadata(1, 650).Enabled, "Automatic HDR preserves SDR output");
+            Assert(HdrDisplayProbe.FromMetadata(12, Single.NaN).PeakNits == 1000 && HdrDisplayProbe.FromMetadata(12, 99999).PeakNits == 4000, "Invalid HDR luminance falls back or clamps");
             Assert(ReleaseUpdateClient.ParseRelease(Json()).Version == new Version(1, 10, 0, 0), "Semver normalization");
             Assert(ReleaseUpdateClient.ParseRelease(Json(version: "v1.11.2.3")).Version == new Version(1, 11, 2, 3), "Four-part version");
             Reject(() => ReleaseUpdateClient.ParseRelease(Json(url: "https://example.org/payload.zip")), "foreign download");
@@ -103,7 +119,7 @@ internal static class Program
             if (args.Length > 0 && args[0] != "--github")
             {
                 UpdateInstaller.Extract(Path.GetFullPath(args[0]), Path.Combine(root, "actual-release"));
-                Assert(System.Reflection.AssemblyName.GetAssemblyName(Path.Combine(root, "actual-release", "ScreenTask.exe")).Version == new Version(1, 10, 0, 0), "Real packaged application version");
+                Assert(System.Reflection.AssemblyName.GetAssemblyName(Path.Combine(root, "actual-release", "ScreenTask.exe")).Version == System.Reflection.AssemblyName.GetAssemblyName(Path.GetFullPath("ScreenTask/bin/Release/ScreenTask.exe")).Version, "Real packaged application version");
             }
             if (args.Contains("--github"))
             {

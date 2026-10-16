@@ -17,3 +17,7 @@ jobs:
       - run: dotnet build tests/UpdateTests -c Release --nologo
       - run: tests/UpdateTests/bin/Release/net48/UpdateTests.exe
       - run: dotnet build tests/ConnectionHarness -c Release --nologo
+      - name: Install browser test tooling
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.62.1
+      - name: Verify browser file sharing in Chrome and Edge
+        run: node tests/browser-files.cjs

@@ -112,6 +112,7 @@ namespace ScreenTask
             comboScreens.SelectedIndex = 0;
             this.Text = $"Screen Task v{currentVersion.Major}.{currentVersion.Minor}";
             BuildStreamControls();
+            InitializeLiveSettings();
         }
 
         private void BuildStreamControls()
@@ -169,10 +170,14 @@ namespace ScreenTask
             var networkTab = CreateSettingsTab(tabs, "Network");
             var videoTab = CreateSettingsTab(tabs, "Video");
             var audioTab = CreateSettingsTab(tabs, "Audio");
-            BuildFileTab(tabs);
             BuildUpdatesTab(tabs);
             var privacyTab = CreateSettingsTab(tabs, "Privacy");
 
+            fileOnlyCheck = new CheckBox { Text = "File transfers only (screen and audio off)", AutoSize = true };
+            AddSettingsCheck(networkTab, fileOnlyCheck);
+            var openFiles = new Button { Text = "Open browser file sharing", AutoSize = true };
+            openFiles.Click += (sender, args) => { if (isWorking) Process.Start("http://localhost:" + _currentSettings.Port + "/files"); else Log("Start the server, then open browser file sharing."); };
+            networkTab.Controls.Add(openFiles, 0, networkTab.RowCount++); networkTab.SetColumnSpan(openFiles, 2);
             AddSettingsRow(networkTab, "IP address", comboIPs);
             AddSettingsRow(networkTab, "Port", numPort);
             AddSettingsCheck(networkTab, cbAllowPublicAccess);
@@ -205,19 +210,24 @@ namespace ScreenTask
             AddSettingsRow(videoTab, "Video quality", qualityRow);
             AddSettingsRow(videoTab, "Bitrate cap", comboBitrate);
             AddSettingsCheck(videoTab, cbCaptureMouse);
-            cbHdrCorrection = new CheckBox { Text = "Correct HDR colors for SDR viewers", AutoSize = true };
+            cbHdrCorrection = new CheckBox { Checked = true };
+            hdrMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            hdrMode.Items.AddRange(new object[] { "Automatic (recommended)", "Off", "Manual / advanced" });
+            hdrMode.SelectedIndex = 0;
+            AddSettingsRow(videoTab, "HDR colors", hdrMode);
+            hdrCalibrationStatus = new Label { Text = "Automatic calibration follows the selected display and Windows HDR mode.", AutoSize = true, MaximumSize = new Size(500, 0) };
+            videoTab.Controls.Add(hdrCalibrationStatus, 0, videoTab.RowCount++); videoTab.SetColumnSpan(hdrCalibrationStatus, 2);
+            hdrManualControls = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 2, Visible = false };
+            hdrManualControls.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+            hdrManualControls.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             numHdrExposure = new NumericUpDown { Minimum = -2, Maximum = 2, DecimalPlaces = 1, Increment = 0.1M };
             numHdrPeak = new NumericUpDown { Minimum = 400, Maximum = 4000, Increment = 100, Value = 1000 };
-            AddSettingsCheck(videoTab, cbHdrCorrection);
-            AddSettingsRow(videoTab, "HDR exposure (EV)", numHdrExposure);
-            AddSettingsRow(videoTab, "HDR peak (nits)", numHdrPeak);
-            var hdrHint = new Label { Text = "Enable for an HDR screen with washed-out or clipped colors. Adjust exposure if too dark. Output is SDR. Direct sharing can use the corrected monitor on its host page. HDR changes restart capture.",
-                AutoSize = true, MaximumSize = new Size(500, 0), ForeColor = Color.FromArgb(75, 85, 100) };
-            videoTab.Controls.Add(hdrHint, 0, videoTab.RowCount); videoTab.SetColumnSpan(hdrHint, 2);
-            cbHdrCorrection.CheckedChanged += (sender, args) => UpdateHdrSettings();
+            AddSettingsRow(hdrManualControls, "Exposure (EV)", numHdrExposure);
+            AddSettingsRow(hdrManualControls, "Display peak (nits)", numHdrPeak);
+            videoTab.Controls.Add(hdrManualControls, 0, videoTab.RowCount++); videoTab.SetColumnSpan(hdrManualControls, 2);
+            hdrMode.SelectedIndexChanged += (sender, args) => UpdateHdrSettings();
             numHdrExposure.ValueChanged += (sender, args) => UpdateHdrSettings();
             numHdrPeak.ValueChanged += (sender, args) => UpdateHdrSettings();
-            UpdateHdrSettings();
 
             cbShareSystemAudio.Text = "Share playback audio";
             AddSettingsCheck(audioTab, cbShareSystemAudio);
@@ -229,7 +239,7 @@ namespace ScreenTask
             comboAudioApplication.Dock = DockStyle.Fill;
             applicationRow.Controls.Add(comboAudioApplication, 0, 0);
             var refreshAudio = new Button { Text = "Refresh", AutoSize = true };
-            refreshAudio.Click += (sender, args) => RefreshAudioApplications();
+            refreshAudio.Click += (sender, args) => { RefreshAudioApplications(); _appliedAudio = null; QueueSettingsChange(); };
             applicationRow.Controls.Add(refreshAudio, 1, 0);
             AddSettingsRow(audioTab, "Application", applicationRow);
             audioModeHint = new Label { Text = "Audio from the selected playback device is available after viewers click Enable audio.",
@@ -283,11 +293,10 @@ namespace ScreenTask
 
         private void UpdateHdrSettings()
         {
-            _currentSettings.HdrColorCorrection = cbHdrCorrection.Checked;
-            _currentSettings.HdrExposure = (double)numHdrExposure.Value;
-            _currentSettings.HdrPeakNits = (int)numHdrPeak.Value;
-            numHdrExposure.Enabled = numHdrPeak.Enabled = cbHdrCorrection.Checked;
-            if (isWorking) StopCaptureProcess();
+            hdrManualControls.Visible = hdrMode.SelectedIndex == 2;
+            if (hdrMode.SelectedIndex != 0) hdrCalibrationStatus.Text = hdrMode.SelectedIndex == 1
+                ? "HDR correction is off." : "Manual override. Changes apply automatically while streaming.";
+            QueueSettingsChange();
         }
 
         private TableLayoutPanel CreateSettingsTab(TabControl tabs, string title)
@@ -383,7 +392,7 @@ namespace ScreenTask
             audioModeHint.Text = !enabled ? "Audio sharing is off." : !processMode
                 ? "The selected playback device shares every application on that device, including calls."
                 : comboAudioMode.SelectedIndex == 1
-                    ? "Only the selected application's process tree is shared. Restart the stream after changing applications."
+                    ? "Only the selected application's process tree is shared. Changes apply automatically."
                     : "The selected application's process tree is left out of the shared audio. Choose your call app to avoid echo.";
         }
 
@@ -424,12 +433,15 @@ namespace ScreenTask
                 btnStartServer.Text = "Start Server";
                 if (btnDirectHost != null) btnDirectHost.Enabled = false;
                 isWorking = false;
+                _captureStopRequested = true;
                 Interlocked.Increment(ref _serverGeneration);
+                Interlocked.Increment(ref _audioGeneration);
                 Interlocked.Exchange(ref _legacyCaptureStarted, 0);
                 Interlocked.Exchange(ref _jpegCaptureStarted, 0);
                 StopCaptureProcess();
                 _rtcSignaling.Reset();
                 _fileShares.CancelDownloads();
+                _browserFiles.StopServing();
                 _h264Stream.BeginStream();
                 _h264Stream.FailStream("The ScreenTask server is stopped.");
                 var audioStream = _audioStream;
@@ -449,11 +461,13 @@ namespace ScreenTask
             try
             {
 
-                _fileTransferOnly = _startFileOnlyRequested;
-                _startFileOnlyRequested = false;
+                _fileTransferOnly = fileOnlyCheck.Checked;
+                ReadControlsIntoSettings();
                 serv = new HttpListener();
                 serv.IgnoreWriteExceptions = false;
                 Interlocked.Increment(ref _serverGeneration);
+                if (_legacyCaptureTask != null) await _legacyCaptureTask;
+                _captureStopRequested = false;
                 _latestFrame = null;
                 isWorking = true;
                 _currentSettings.FrameRate = (int)numShotEvery.Value;
@@ -476,6 +490,7 @@ namespace ScreenTask
                 Volatile.Write(ref _sendWriteMs, 0);
                 Volatile.Write(ref _bitrateWaitPct, 0);
                 Volatile.Write(ref _skippedFrames, 0);
+                RememberAppliedSettings();
                 Log("Starting Server, Please Wait...");
                 await AddFirewallRule((int)numPort.Value);
                 await StartServer();
@@ -537,7 +552,7 @@ namespace ScreenTask
             var selectedIP = _ips.ElementAt(comboIPs.SelectedIndex).Item2;
 
             var url = string.Format("http://{0}:{1}", selectedIP, numPort.Value.ToString());
-            txtURL.Text = url;
+            txtURL.Text = _viewerOrigin = url;
             serv.Prefixes.Clear();
             serv.Prefixes.Add("http://localhost:" + numPort.Value.ToString() + "/");
             if (_currentSettings.AllowPublicAccess)
@@ -546,11 +561,10 @@ namespace ScreenTask
                 serv.Prefixes.Add(url + "/");
             serv.Start();
             _fileShares.StartServing();
+            _browserFiles.StartServing();
             btnStartServer.Tag = "stop";
             btnStartServer.Text = "Stop Server";
             if (btnDirectHost != null) btnDirectHost.Enabled = !_fileTransferOnly;
-            if (filePublicAddress != null && (String.IsNullOrWhiteSpace(filePublicAddress.Text) || filePublicAddress.Text == fileSuggestedAddress)) filePublicAddress.Text = url;
-            fileSuggestedAddress = url;
             Log("Server Started Successfully!" + (_fileTransferOnly ? " File transfers only; screen and audio endpoints are disabled." : ""));
             appNotify.ShowBalloonTip(1_000, "ScreenTask", $"Server Started Successfully!\r\n{url}", ToolTipIcon.Info);
 
@@ -567,11 +581,17 @@ namespace ScreenTask
                 {
                     var resPath = ctx.Request.Url.LocalPath;
 
-                    if ((FileShareHub.IsRoute(resPath) || resPath == "/ScreenTask.jpg" || resPath == "/stream.mjpg" || resPath == "/stream.mp4" || resPath == "/audio" || resPath == "/stats" || resPath == "/chat" || resPath == "/rtc-signaling" || resPath == "/connection-info") && !IsAuthorized(ctx))
+                    if ((BrowserFileHub.IsRoute(resPath) || FileShareHub.IsRoute(resPath) || resPath == "/ScreenTask.jpg" || resPath == "/stream.mjpg" || resPath == "/stream.mp4" || resPath == "/audio" || resPath == "/stats" || resPath == "/chat" || resPath == "/rtc-signaling" || resPath == "/connection-info") && !IsAuthorized(ctx))
                     {
                         ctx.Response.StatusCode = 401;
                         ctx.Response.AddHeader("WWW-Authenticate", "Basic realm=\"ScreenTask\"");
                         ctx.Response.Close();
+                        continue;
+                    }
+
+                    if (BrowserFileHub.IsRoute(resPath))
+                    {
+                        _ = Task.Run(() => _browserFiles.HandleAsync(ctx));
                         continue;
                     }
 
@@ -582,7 +602,7 @@ namespace ScreenTask
                     }
 
                     if (_fileTransferOnly && resPath != "/" && resPath != "/files" && resPath != "/files.html" &&
-                        !resPath.StartsWith("/files/", StringComparison.Ordinal) && resPath != "/connection-info")
+                        !resPath.StartsWith("/files/", StringComparison.Ordinal) && resPath != "/connection-info" && resPath != "/browser-files.js")
                     {
                         var data = Encoding.UTF8.GetBytes("File-only mode is active. Screen sharing and audio are disabled.");
                         ctx.Response.StatusCode = 403;
@@ -609,7 +629,7 @@ namespace ScreenTask
 
                     if (resPath == "/connection-info")
                     {
-                        var data = Encoding.UTF8.GetBytes("{\"viewerOrigin\":\"" + url + "\",\"hdrCorrection\":" + (_currentSettings.HdrColorCorrection ? "true" : "false") + ",\"screen\":" + _currentSettings.SelectedScreenIndex + ",\"fileOnly\":" + (_fileTransferOnly ? "true" : "false") + "}");
+                        var data = Encoding.UTF8.GetBytes("{\"viewerOrigin\":\"" + (_viewerOrigin ?? url) + "\",\"hdrCorrection\":" + (_currentSettings.HdrColorCorrection ? "true" : "false") + ",\"screen\":" + _currentSettings.SelectedScreenIndex + ",\"fileOnly\":" + (_fileTransferOnly ? "true" : "false") + "}");
                         ctx.Response.ContentType = "application/json";
                         ctx.Response.Headers["Cache-Control"] = "no-store";
                         ctx.Response.ContentLength64 = data.Length;
@@ -778,7 +798,19 @@ namespace ScreenTask
         private void EnsureLegacyCaptureStarted()
         {
             if (!isWorking || Interlocked.CompareExchange(ref _legacyCaptureStarted, 1, 0) != 0) return;
-            _ = Task.Factory.StartNew(() => CaptureScreenH264Preferred(), TaskCreationOptions.LongRunning);
+            _captureStopRequested = false;
+            _legacyCaptureTask = Task.Factory.StartNew(() => {
+                try
+                {
+                    while (isWorking && !_fileTransferOnly && !_captureStopRequested)
+                    {
+                        var revision = Volatile.Read(ref _captureSettingsVersion);
+                        CaptureScreenH264Preferred();
+                        if (revision == Volatile.Read(ref _captureSettingsVersion)) break;
+                    }
+                }
+                finally { Interlocked.Exchange(ref _legacyCaptureStarted, 0); }
+            }, TaskCreationOptions.LongRunning);
         }
 
         private void EnsureJpegCompatibilityCapture()
@@ -789,7 +821,7 @@ namespace ScreenTask
             {
                 while (isWorking && generation == Volatile.Read(ref _serverGeneration))
                 {
-                    if (Volatile.Read(ref _jpegViewers) > 0 && _captureCodec == "H.264")
+                    if (!_fileTransferOnly && !_captureStopRequested && Volatile.Read(ref _jpegViewers) > 0 && _captureCodec == "H.264")
                     {
                         if (_currentSettings.HdrColorCorrection)
                         {
@@ -809,13 +841,14 @@ namespace ScreenTask
             if (!isWorking)
                 return;
 
+            var generation = Volatile.Read(ref _audioGeneration);
             var mode = _currentSettings.AudioMode;
             var audioStream = new AudioStreamServer(_currentSettings.AudioDeviceId,
                 mode == "device" ? 0 : _currentSettings.AudioProcessId, mode == "exclude", Log);
             try
             {
                 audioStream.Start();
-                if (!isWorking)
+                if (!isWorking || _fileTransferOnly || generation != Volatile.Read(ref _audioGeneration))
                 {
                     audioStream.Dispose();
                     return;
@@ -843,8 +876,9 @@ namespace ScreenTask
             }
 
             var encoders = new[] { "h264_mf", "libx264" };
-            while (isWorking)
+            while (isWorking && !_fileTransferOnly && !_captureStopRequested)
             {
+                var revision = Volatile.Read(ref _captureSettingsVersion);
                 var fps = _requestedFrameRate;
                 var width = _currentSettings.OutputWidth;
                 var quality = _currentSettings.ImageQuality;
@@ -853,6 +887,7 @@ namespace ScreenTask
                 var hdr = _currentSettings.HdrColorCorrection;
                 var exposure = _currentSettings.HdrExposure;
                 var peakNits = _currentSettings.HdrPeakNits;
+                var bitrate = _currentSettings.MaxBitrateMbps;
                 var restartedForSettings = false;
 
                 foreach (var encoder in encoders)
@@ -864,13 +899,13 @@ namespace ScreenTask
                     }
                     catch (Exception ex)
                     {
-                        if (!isWorking) return;
+                        if (!isWorking || _fileTransferOnly || _captureStopRequested) return;
                         Log("H.264 " + encoder + " capture failed: " + ex.Message);
                     }
 
-                    if (!isWorking) return;
-                    if (fps != _requestedFrameRate || width != _currentSettings.OutputWidth ||
-                        quality != _currentSettings.ImageQuality || mouse != _currentSettings.IsShowMouseEnabled ||
+                    if (!isWorking || _fileTransferOnly || _captureStopRequested) return;
+                    if (revision != Volatile.Read(ref _captureSettingsVersion) || fps != _requestedFrameRate || width != _currentSettings.OutputWidth ||
+                        bitrate != _currentSettings.MaxBitrateMbps || quality != _currentSettings.ImageQuality || mouse != _currentSettings.IsShowMouseEnabled ||
                         screen != _currentSettings.SelectedScreenIndex || hdr != _currentSettings.HdrColorCorrection ||
                         exposure != _currentSettings.HdrExposure || peakNits != _currentSettings.HdrPeakNits)
                     {
@@ -880,7 +915,7 @@ namespace ScreenTask
                 }
 
                 if (restartedForSettings) continue;
-                if (!isWorking) return;
+                if (!isWorking || _fileTransferOnly || _captureStopRequested) return;
 
                 Log("H.264 capture could not start; falling back to JPEG capture.");
                 _captureCodec = "MJPEG";
@@ -997,7 +1032,7 @@ namespace ScreenTask
             byte[] box;
             string type;
 
-            while (isWorking && H264StreamHub.TryReadMp4Box(output, out box, out type))
+            while (isWorking && !_fileTransferOnly && !_captureStopRequested && H264StreamHub.TryReadMp4Box(output, out box, out type))
             {
                 if (!hasInitialization)
                 {
@@ -1093,7 +1128,7 @@ namespace ScreenTask
             var ffmpeg = Path.Combine(Application.StartupPath, "ffmpeg.exe");
             if (File.Exists(ffmpeg))
             {
-                while (isWorking)
+                while (isWorking && !_fileTransferOnly && !_captureStopRequested)
                 {
                     var fps = _requestedFrameRate;
                     var width = _currentSettings.OutputWidth;
@@ -1122,7 +1157,7 @@ namespace ScreenTask
                     break;
                 }
             }
-            if (isWorking)
+            if (isWorking && !_fileTransferOnly && !_captureStopRequested)
             {
                 if (_currentSettings.HdrColorCorrection) Log("Native HDR correction is unavailable; Windows GDI fallback cannot guarantee correct HDR colors.");
                 CaptureWithGdi();
@@ -1268,13 +1303,14 @@ namespace ScreenTask
         private void CaptureWithGdi()
         {
             _captureBackend = "GDI";
+            var revision = Volatile.Read(ref _captureSettingsVersion);
             var nextFrame = (double)Stopwatch.GetTimestamp();
             var sampleStart = Stopwatch.GetTimestamp();
             var sampleFrames = 0;
             var timerReady = timeBeginPeriod(1) == 0;
             try
             {
-                while (isWorking)
+                while (isWorking && !_fileTransferOnly && !_captureStopRequested && revision == Volatile.Read(ref _captureSettingsVersion))
                 {
                     if (TakeScreenshot(_currentSettings.IsShowMouseEnabled)) sampleFrames++;
                     var now = Stopwatch.GetTimestamp();
@@ -1408,7 +1444,7 @@ namespace ScreenTask
 
             try
             {
-                while (isWorking)
+                while (isWorking && !_fileTransferOnly && !_captureStopRequested)
                 {
                     byte[] frame;
                     long sequence;
@@ -1769,47 +1805,49 @@ namespace ScreenTask
 
             try
             {
-                if (File.Exists(Constants.AppSettingsFileName))
-                {
-                    var serializer = new XmlSerializer(typeof(AppSettings));
-                    using (var appSettingsFile = File.OpenRead(Constants.AppSettingsFileName))
-                    {
-                        _currentSettings = (AppSettings)serializer.Deserialize(appSettingsFile);
-                    }
-
-                    this.cbPrivate.Checked = _currentSettings.IsPrivateSession;
-                    this.cbCaptureMouse.Checked = _currentSettings.IsShowMouseEnabled;
-                    this.cbAutoStart.Checked = _currentSettings.IsAutoStartServerEnabled;
-                    this.cbMiniStart.Checked = _currentSettings.IsStartMinimizedEnabled;
-                    this.txtUser.Text = _currentSettings.Username;
-                    this.txtPassword.Text = _currentSettings.Password;
-                    this.numPort.Value = _currentSettings.Port;
-                    this.numShotEvery.Value = Math.Max(numShotEvery.Minimum, Math.Min(numShotEvery.Maximum, _currentSettings.FrameRate));
-                    this.cbShareSystemAudio.Checked = _currentSettings.ShareSystemAudio;
-                    var hdrExposure = _currentSettings.HdrExposure;
-                    var hdrPeak = _currentSettings.HdrPeakNits;
-                    cbHdrCorrection.Checked = _currentSettings.HdrColorCorrection;
+                var saved = SettingsStore.Load(_preferencesPath, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.xml"));
+                    this.cbPrivate.Checked = saved.IsPrivateSession;
+                    this.cbCaptureMouse.Checked = saved.IsShowMouseEnabled;
+                    this.cbAutoStart.Checked = saved.IsAutoStartServerEnabled;
+                    this.cbMiniStart.Checked = saved.IsStartMinimizedEnabled;
+                    this.txtUser.Text = saved.Username;
+                    this.txtPassword.Text = saved.Password;
+                    this.numPort.Value = saved.Port > 0 && saved.Port <= 65535 ? saved.Port : 7070;
+                    this.numShotEvery.Value = Math.Max(numShotEvery.Minimum, Math.Min(numShotEvery.Maximum, saved.FrameRate));
+                    this.cbShareSystemAudio.Checked = saved.ShareSystemAudio;
+                    var hdrExposure = saved.ManualHdrExposure;
+                    var hdrPeak = saved.ManualHdrPeakNits;
+                    hdrMode.SelectedIndex = saved.AutomaticHdr ? 0 : saved.HdrColorCorrection ? 2 : 1;
+                    fileOnlyCheck.Checked = saved.FileTransferOnly;
                     numHdrExposure.Value = (decimal)Math.Max(-2, Math.Min(2, hdrExposure));
                     numHdrPeak.Value = Math.Max(400, Math.Min(4000, hdrPeak));
-                    this.qualitySlider.Value = _currentSettings.ImageQuality != default ? _currentSettings.ImageQuality : 75;
-                    comboResolution.SelectedIndex = _currentSettings.OutputWidth >= 1900 ? 1 : _currentSettings.OutputWidth >= 1200 ? 2 : _currentSettings.OutputWidth >= 800 ? 3 : 0;
-                    comboBitrate.SelectedIndex = _currentSettings.MaxBitrateMbps <= 0 ? 5 : _currentSettings.MaxBitrateMbps <= 2 ? 0 : _currentSettings.MaxBitrateMbps <= 4 ? 1 : _currentSettings.MaxBitrateMbps <= 8 ? 2 : _currentSettings.MaxBitrateMbps <= 12 ? 3 : 4;
-                    if (!String.IsNullOrEmpty(_currentSettings.AudioDeviceId))
+                    this.qualitySlider.Value = saved.ImageQuality != default ? saved.ImageQuality : 75;
+                    comboResolution.SelectedIndex = saved.OutputWidth >= 1900 ? 1 : saved.OutputWidth >= 1200 ? 2 : saved.OutputWidth >= 800 ? 3 : 0;
+                    comboBitrate.SelectedIndex = saved.MaxBitrateMbps <= 0 ? 5 : saved.MaxBitrateMbps <= 2 ? 0 : saved.MaxBitrateMbps <= 4 ? 1 : saved.MaxBitrateMbps <= 8 ? 2 : saved.MaxBitrateMbps <= 12 ? 3 : 4;
+                    if (!String.IsNullOrEmpty(saved.AudioDeviceId))
                         for (var i = 0; i < comboAudioDevice.Items.Count; i++)
-                            if (comboAudioDevice.Items[i] is AudioDeviceChoice choice && choice.Id == _currentSettings.AudioDeviceId) comboAudioDevice.SelectedIndex = i;
-                    comboAudioMode.SelectedIndex = _currentSettings.AudioMode == "include" ? 1 : _currentSettings.AudioMode == "exclude" ? 2 : 0;
+                            if (comboAudioDevice.Items[i] is AudioDeviceChoice choice && choice.Id == saved.AudioDeviceId) comboAudioDevice.SelectedIndex = i;
+                    comboAudioMode.SelectedIndex = saved.AudioMode == "include" ? 1 : saved.AudioMode == "exclude" ? 2 : 0;
+                    _currentSettings.AudioProcessId = saved.AudioProcessId;
+                    _currentSettings.AudioProcessName = saved.AudioProcessName;
                     RefreshAudioApplications();
                     lblQualityValue.Text = qualitySlider.Value + "%";
-                    this.cbAllowPublicAccess.Checked = _currentSettings.AllowPublicAccess;
-                    this.comboIPs.SelectedIndex = _ips.IndexOf(_ips.FirstOrDefault(ip => ip.Item2.Contains(_currentSettings.IP)));
-                    if (_currentSettings.SelectedScreenIndex > -1 && comboScreens.Items.Count > 0 && _currentSettings.SelectedScreenIndex <= comboScreens.Items.Count - 1)
-                        this.comboScreens.SelectedIndex = _currentSettings.SelectedScreenIndex;
-                }
+                    this.cbAllowPublicAccess.Checked = saved.AllowPublicAccess;
+                    var adapter = _ips.FindIndex(ip => ip.Item2 == saved.IP);
+                    if (adapter >= 0) comboIPs.SelectedIndex = adapter;
+                    if (saved.SelectedScreenIndex > -1 && comboScreens.Items.Count > 0 && saved.SelectedScreenIndex <= comboScreens.Items.Count - 1)
+                        this.comboScreens.SelectedIndex = saved.SelectedScreenIndex;
+                _currentSettings = saved;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load local appsettings.xml file.\r\n{ex.ToString()}", "ScreenTask", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Failed to load saved ScreenTask preferences.\r\n{ex.ToString()}", "ScreenTask", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+
+            _settingsReady = true;
+            ReadControlsIntoSettings();
+            UpdateHdrSettings();
+            RememberAppliedSettings();
 
             if (_currentSettings.IsStartMinimizedEnabled)
             {
@@ -1837,8 +1875,11 @@ namespace ScreenTask
             StopCaptureProcess();
             _rtcSignaling.Dispose();
             _h264Stream.Dispose();
-            fileRefreshTimer?.Dispose();
+            settingsTimer?.Dispose();
+            hdrProfileTimer?.Dispose();
+            Interlocked.Increment(ref _audioGeneration);
             _fileShares.Dispose();
+            _browserFiles.Dispose();
             var audioStream = _audioStream;
             _audioStream = null;
             audioStream?.Dispose();
@@ -1849,33 +1890,15 @@ namespace ScreenTask
             }
             try
             {
-                _currentSettings.Port = (int)numPort.Value;
-                _currentSettings.Username = txtUser.Text;
-                _currentSettings.Password = txtPassword.Text;
-                _currentSettings.IsShowMouseEnabled = cbCaptureMouse.Checked;
-                _currentSettings.IsPrivateSession = cbPrivate.Checked;
-                _currentSettings.IsAutoStartServerEnabled = cbAutoStart.Checked;
-                _currentSettings.IsStartMinimizedEnabled = cbMiniStart.Checked;
-                _currentSettings.FrameRate = (int)numShotEvery.Value;
-                _currentSettings.ShareSystemAudio = cbShareSystemAudio.Checked;
-                _currentSettings.IP = _ips.ElementAt(comboIPs.SelectedIndex).Item2;
-                _currentSettings.SelectedScreenIndex = comboScreens.SelectedIndex;
-                _currentSettings.ImageQuality = qualitySlider.Value;
-                _currentSettings.OutputWidth = GetSelectedWidth();
-                _currentSettings.MaxBitrateMbps = GetSelectedBitrate();
-                _currentSettings.AudioDeviceId = (comboAudioDevice.SelectedItem as AudioDeviceChoice)?.Id;
-                SaveAudioSourceSettings();
-                _currentSettings.AllowPublicAccess = cbAllowPublicAccess.Checked;
-
-                using (var appSettingsFile = new FileStream(Constants.AppSettingsFileName, FileMode.Create, FileAccess.Write))
+                if (_settingsReady)
                 {
-                    var serializer = new XmlSerializer(typeof(AppSettings));
-                    serializer.Serialize(appSettingsFile, _currentSettings);
+                    ReadControlsIntoSettings();
+                    SettingsStore.Save(_preferencesPath, _currentSettings);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Cannot save the settings file next to the executable file.\r\n{ex.ToString()}", "ScreenTask", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Cannot save preferences in the ScreenTask AppData folder.\r\n{ex.ToString()}", "ScreenTask", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

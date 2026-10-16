@@ -5,6 +5,7 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="System.Web.Extensions" />
     <ProjectReference Include="../../ScreenTask/ScreenTask.csproj" />
     <Content Include="../../ScreenTask/WebServer/*" Link="WebServer/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
