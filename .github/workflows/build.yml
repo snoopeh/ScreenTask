@@ -20,4 +20,5 @@ jobs:
       - name: Install browser test tooling
         run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.62.1
       - name: Verify browser file sharing in Chrome and Edge
+        timeout-minutes: 5
         run: node tests/browser-files.cjs

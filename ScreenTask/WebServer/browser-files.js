@@ -49,7 +49,8 @@
     const label = document.createElement('div'); label.className = 'meta transferTelemetry';
     const eta = rate > 0 && p.state === 'sending' ? ' · ' + Math.ceil((total - sent) / rate) + ' s remaining' : '';
     label.textContent = `${p.state} · ${percent.toFixed(1)}% · ${size(sent)} / ${size(total)} · ${size(rate)}/s${eta}`;
-    container.replaceChildren(progress, label);
+    const identity = document.createElement('div'); identity.className = 'hint'; identity.textContent = p.transfer ? 'Download ' + p.transfer.slice(-6) : 'Download progress';
+    container.replaceChildren(identity, progress, label);
     if (cancel && ['waiting', 'sending'].includes(p.state)) { const button = document.createElement('button'); button.textContent = 'Cancel download'; button.onclick = cancel; container.append(button); }
   }
   function serve(request) {
@@ -98,7 +99,7 @@
         else if (message.type === 'progress') {
           for (const item of files.values()) {
             const transfers = message.transfers.filter(t => t.token === item.token); if (!transfers.length) continue;
-            const rows = transfers.map(t => { const div = document.createElement('div'); div.className = 'transfer'; renderProgress(div, t.progress, () => { if (current.readyState === WebSocket.OPEN) current.send(JSON.stringify({type: 'cancel', transfer: t.transfer})); }); return div; });
+            const rows = transfers.map(t => { const div = document.createElement('div'); div.className = 'transfer'; div.dataset.transfer = t.transfer; renderProgress(div, t.progress, () => { if (current.readyState === WebSocket.OPEN) current.send(JSON.stringify({type: 'cancel', transfer: t.transfer})); }); return div; });
             item.progress.replaceChildren(...rows);
           }
         }

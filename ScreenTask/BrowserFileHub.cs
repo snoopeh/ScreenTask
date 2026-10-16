@@ -291,7 +291,7 @@ namespace ScreenTask
             internal readonly CancellationTokenSource Cancellation = new CancellationTokenSource();
             internal readonly TaskCompletionSource<WebSocket> Ready = new TaskCompletionSource<WebSocket>(TaskCreationOptions.RunContinuationsAsynchronously);
             internal readonly TaskCompletionSource<bool> Finished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            internal object Snapshot() { var sent = Interlocked.Read(ref Sent); return new { state = State, sent = sent.ToString(CultureInfo.InvariantCulture), size = Length.ToString(CultureInfo.InvariantCulture), speed = sent / Math.Max(.001, Elapsed.Elapsed.TotalSeconds), seconds = Elapsed.Elapsed.TotalSeconds }; }
+            internal object Snapshot() { var sent = Interlocked.Read(ref Sent); return new { transfer = Id, state = State, sent = sent.ToString(CultureInfo.InvariantCulture), size = Length.ToString(CultureInfo.InvariantCulture), speed = sent / Math.Max(.001, Elapsed.Elapsed.TotalSeconds), seconds = Elapsed.Elapsed.TotalSeconds }; }
             internal void Cancel() { if (Finished.Task.IsCompleted) return; Cancellation.Cancel(); Source?.Abort(); try { Response?.Abort(); } catch { } }
         }
     }

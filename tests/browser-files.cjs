@@ -58,12 +58,13 @@ async function main() {
     const resumed = await fetch(origin + '/browser-download/' + huge.token + '?transfer=' + id, {headers: {Range: 'bytes=1048576-1048591'}});
     assert.equal(resumed.status, 206); assert.equal((await resumed.arrayBuffer()).byteLength, 16);
     console.log('PASS: interrupted browser transfer resumes with the same download URL and a byte range');
-    const cancellable = await fetch(origin + '/browser-download/' + huge.token), cancelReader = cancellable.body.getReader(); await cancelReader.read();
-    await huge.row.getByRole('button', {name: 'Cancel download', exact: true}).first().click();
+    const cancelId = 'b'.repeat(48);
+    const cancellable = await fetch(origin + '/browser-download/' + huge.token + '?transfer=' + cancelId), cancelReader = cancellable.body.getReader(); await cancelReader.read();
+    await huge.row.locator('[data-transfer="' + cancelId + '"]').getByRole('button', {name: 'Cancel download', exact: true}).click();
     let cancelled = false; try { while (!(await cancelReader.read()).done) {} } catch { cancelled = true; }
     assert(cancelled); assert.equal((await fetch(origin + '/browser-file-info/' + huge.token)).status, 200);
     console.log('PASS: sender can cancel a download in browser telemetry while retaining its share link');
-    const held = []; for (let n = 0; n < 4; n++) held.push(await fetch(origin + '/browser-download/' + huge.token));
+    const held = []; for (let n = 0; n < 4; n++) { const response = await fetch(origin + '/browser-download/' + huge.token); assert.equal(response.status, 200); held.push(response); }
     const limited = await fetch(origin + '/browser-download/' + huge.token); assert.equal(limited.status, 429); await limited.text();
     await Promise.all(held.map(response => response.body.cancel())); await wait(200);
     console.log('PASS: browser-sourced downloads have a bounded concurrency limit');
