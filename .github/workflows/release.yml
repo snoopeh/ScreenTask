@@ -21,6 +21,13 @@ jobs:
       - name: Build and verify portable download
         shell: pwsh
         run: ./scripts/Build-Release.ps1
+      - name: Build browser file-transfer harness
+        run: dotnet build tests/ConnectionHarness -c Release --nologo
+      - name: Install browser test tooling
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.62.1
+      - name: Verify browser file sharing before publishing
+        timeout-minutes: 5
+        run: node tests/browser-files.cjs
       - name: Publish portable download and checksums
         shell: pwsh
         env:

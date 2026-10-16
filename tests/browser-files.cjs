@@ -86,6 +86,10 @@ async function main() {
     harness.stdin.write('PRIVATE\n'); for (let n = 0; n < 50 && !output.includes('PRIVATE\n'); n++) await wait(50);
     assert.equal((await fetch(origin + '/browser-file-info/' + small.token)).status, 401);
     assert.equal((await fetch(origin + '/browser-file-info/' + small.token, {headers: {Authorization: 'Basic ' + Buffer.from('test:transfer').toString('base64')}})).status, 200);
+    const authenticated = await fetch(origin + '/browser-download/' + small.token, {headers: {Authorization: 'Basic ' + Buffer.from('test:transfer').toString('base64')}});
+    assert.equal(authenticated.status, 200);
+    assert.equal((await authenticated.arrayBuffer()).byteLength, 1024 * 1024 + 19);
+    console.log('PASS: enabling private mode live protects downloads while existing selected-file sources remain usable by authenticated recipients');
     assert.deepEqual(pageErrors, []); assert.equal(errors, '');
     console.log('PASS: closing sender revokes its links; cross-origin control is rejected; file-only page stays independent of screen/audio');
     fs.mkdirSync(path.join(__dirname, 'artifacts'), {recursive: true}); await sender.screenshot({path: path.join(__dirname, 'artifacts/browser-file-sharing.png'), fullPage: true});

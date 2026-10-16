@@ -581,7 +581,10 @@ namespace ScreenTask
                 {
                     var resPath = ctx.Request.Url.LocalPath;
 
-                    if ((BrowserFileHub.IsRoute(resPath) || FileShareHub.IsRoute(resPath) || resPath == "/ScreenTask.jpg" || resPath == "/stream.mjpg" || resPath == "/stream.mp4" || resPath == "/audio" || resPath == "/stats" || resPath == "/chat" || resPath == "/rtc-signaling" || resPath == "/connection-info") && !IsAuthorized(ctx))
+                    // The upload socket has a one-use capability issued only for
+                    // an authorized download. It exposes no metadata or control
+                    // and keeps existing sender tabs working after credentials change.
+                    if (((BrowserFileHub.IsRoute(resPath) && !resPath.StartsWith("/file-source/", StringComparison.Ordinal)) || FileShareHub.IsRoute(resPath) || resPath == "/ScreenTask.jpg" || resPath == "/stream.mjpg" || resPath == "/stream.mp4" || resPath == "/audio" || resPath == "/stats" || resPath == "/chat" || resPath == "/rtc-signaling" || resPath == "/connection-info") && !IsAuthorized(ctx))
                     {
                         ctx.Response.StatusCode = 401;
                         ctx.Response.AddHeader("WWW-Authenticate", "Basic realm=\"ScreenTask\"");
